@@ -696,3 +696,141 @@ def probar_modulo_3():
             accion()
         except SoftwareFJError as error:
             print(f"   {descripcion}: {type(error).__name__} -> {error}")
+
+
+# MODULO 4: CLASE RESERVA
+
+# clase que une al cliente con el servicio que va a tomar
+class Reserva(EntidadSistema):
+    def __init__(self, id_reserva, cliente, servicio, duracion):
+        super().__init__(id_reserva)
+        self._cliente = cliente
+        self._servicio = servicio
+        self._duracion = duracion
+        self._estado = "Pendiente"
+        self._costo_final = 0.0
+        
+        # validamos los datos apenas se intenta crear la reserva
+        self.validar_datos()
+        GestorLogs.registrar_info(f"Reserva {self.id_entidad} creada en estado Pendiente.")
+
+    @property
+    def cliente(self):
+        return self._cliente
+
+    @property
+    def servicio(self):
+        return self._servicio
+
+    @property
+    def duracion(self):
+        return self._duracion
+
+    @property
+    def estado(self):
+        return self._estado
+
+    @property
+    def costo_final(self):
+        return self._costo_final
+
+    # implementacion del metodo abstracto para revisar que todo tenga sentido
+    def validar_datos(self):
+        if self._cliente is None:
+            error = ReservaInvalidaError(f"Reserva {self.id_entidad}: No se asigno ningun cliente valido.")
+            GestorLogs.registrar_error(error, "Validacion Reserva")
+            raise error
+
+        if self._servicio is None:
+            error = ServicioNoDisponibleError(f"Reserva {self.id_entidad}: El servicio solicitado no existe o no esta disponible.")
+            GestorLogs.registrar_error(error, "Validacion Reserva")
+            raise error
+
+        if not isinstance(self._duracion, (int, float)) or self._duracion <= 0:
+            error = CalculoInconsistenteError(f"Reserva {self.id_entidad}: La duracion ({self._duracion}) debe ser mayor a cero.")
+            GestorLogs.registrar_error(error, "Validacion Reserva")
+            raise error
+
+    # procesa el cobro usando try/except/else/finally y encadenamiento de excepciones
+    def procesar_reserva(self, descuento=0.0, impuesto=0.19):
+        print(f"-> Procesando calculo de la reserva {self.id_entidad}...")
+        try:
+            if descuento < 0 or descuento >= 1 or impuesto < 0:
+                raise ValueError("Los porcentajes de descuento o impuesto estan fuera de rango.")
+
+            # llamamos el metodo polimorfico del servicio para sacar el costo
+            # intenta pasar parametros opcionales y si el servicio recibe solo duracion se adapta
+            try:
+                costo_calculado = self._servicio.calcular_costo(self._duracion, descuento=descuento, impuesto=impuesto)
+            except TypeError:
+                costo_base = self._servicio.calcular_costo(self._duracion)
+                costo_con_descuento = costo_base * (1 - descuento)
+                costo_calculado = costo_con_descuento * (1 + impuesto)
+
+            if costo_calculado <= 0:
+                raise ValueError("El resultado del calculo dio un valor negativo o cero.")
+
+        except Exception as e:
+            # encadenamiento de excepciones (raise ... from e) exigido en la guia
+            error_encadenado = CalculoInconsistenteError(
+                f"Fallo al calcular el costo de la reserva {self.id_entidad}."
+            )
+            error_encadenado.__cause__ = e
+            GestorLogs.registrar_error(error_encadenado, "Procesamiento de Reserva")
+            raise error_encadenado from e
+
+        else:
+            # el bloque else solo corre si no hubo ningun error en el try
+            self._costo_final = round(costo_calculado, 2)
+            GestorLogs.registrar_info(
+                f"Reserva {self.id_entidad} procesada con exito. Total calculado: ${self._costo_final}"
+            )
+            return self._costo_final
+
+        finally:
+            # el bloque finally se ejecuta siempre para dejar constancia del cierre del proceso
+            GestorLogs.registrar_info(f"Finalizo el intento de procesamiento para la reserva {self.id_entidad}.")
+
+    # confirma la reserva usando try/except/else
+    def confirmar_reserva(self):
+        try:
+            if self._estado == "Cancelada":
+                raise ReservaInvalidaError(f"No se puede confirmar la reserva {self.id_entidad} porque ya fue cancelada.")
+            if self._estado == "Confirmada":
+                raise ReservaInvalidaError(f"La reserva {self.id_entidad} ya estaba confirmada previamente.")
+            if self._costo_final <= 0:
+                self.procesar_reserva()
+
+        except SoftwareFJError as err:
+            GestorLogs.registrar_error(err, "Confirmar Reserva")
+            raise err
+
+        else:
+            self._estado = "Confirmada"
+            GestorLogs.registrar_info(f"Reserva {self.id_entidad} paso a estado Confirmada.")
+            print(f"[OK] Reserva {self.id_entidad} confirmada correctamente.")
+
+    # cancela la reserva usando try/except/finally
+    def cancelar_reserva(self, motivo="Solicitud del cliente"):
+        try:
+            if self._estado == "Cancelada":
+                raise ReservaInvalidaError(f"La reserva {self.id_entidad} ya se encuentra cancelada.")
+            self._estado = "Cancelada"
+            GestorLogs.registrar_info(f"Reserva {self.id_entidad} cancelada. Motivo: {motivo}")
+            print(f"[AVISO] Reserva {self.id_entidad} ha sido cancelada ({motivo}).")
+
+        except SoftwareFJError as err:
+            GestorLogs.registrar_error(err, "Cancelar Reserva")
+            raise err
+
+        finally:
+            print(f"-> Estado actual de {self.id_entidad}: {self._estado}")
+
+    def mostrar_resumen(self):
+        nombre_cli = getattr(self._cliente, "nombre", self._cliente.id_entidad)
+        nombre_srv = getattr(self._servicio, "nombre", self._servicio.id_entidad)
+        return (
+            f"Reserva [{self.id_entidad}] | Cliente: {nombre_cli} | "
+            f"Servicio: {nombre_srv} | Duracion: {self._duracion}h | "
+            f"Costo: ${self._costo_final} | Estado: {self._estado}"
+        )
