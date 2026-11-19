@@ -834,3 +834,173 @@ class Reserva(EntidadSistema):
             f"Servicio: {nombre_srv} | Duracion: {self._duracion}h | "
             f"Costo: ${self._costo_final} | Estado: {self._estado}"
         )
+        
+        # MODULO 5: SIMULACION PRINCIPAL - 10 OPERACIONES DEL SISTEMA
+
+def ejecutar_simulacion():
+    print("\n=======================================================")
+    print(" INICIANDO SIMULACION DE 10 OPERACIONES - SOFTWARE FJ")
+    print("=======================================================\n")
+    GestorLogs.registrar_info("Inicio de la simulacion general de las 10 operaciones.")
+
+    # listas internas para guardar los objetos en memoria (sin base de datos)
+    lista_clientes = []
+    lista_servicios = []
+    lista_reservas = []
+
+    # -----------------------------------------------------------------
+    # OPERACION 1: Registro valido de un primer cliente
+    # -----------------------------------------------------------------
+    print("--- Operacion 1: Registro de cliente valido ---")
+    try:
+        cli1 = Cliente("1061234567", "Carlos Perez", "carlos@correo.com", "3001234567")  # INTEGRACION: Cliente recibe (documento, nombre, correo, telefono)
+        lista_clientes.append(cli1)
+        print("Cliente registrado:", cli1.mostrar_resumen())
+    except Exception as e:
+        print(f"Error controlado en Op 1: {e}")
+
+    # -----------------------------------------------------------------
+    # OPERACION 2: Intento de registro de cliente con datos invalidos
+    # -----------------------------------------------------------------
+    print("\n--- Operacion 2: Registro de cliente con correo/datos invalidos ---")
+    try:
+        # se envia nombre vacio o correo sin formato para disparar la excepcion
+        cli_malo = Cliente("41555666", "", "correomalo", "123")  # INTEGRACION: el documento debe ser numerico
+        lista_clientes.append(cli_malo)
+    except Exception as e:
+        print(f"Error capturado correctamente en Op 2 -> {e}")
+
+    # -----------------------------------------------------------------
+    # OPERACION 3: Registro valido de un segundo cliente
+    # -----------------------------------------------------------------
+    print("\n--- Operacion 3: Registro de segundo cliente valido ---")
+    try:
+        cli2 = Cliente("52123456", "Laura Gomez", "laura.gomez@empresa.co", "3159876543")  # INTEGRACION: el documento debe ser numerico
+        lista_clientes.append(cli2)
+        print("Cliente registrado:", cli2.mostrar_resumen())
+    except Exception as e:
+        print(f"Error controlado en Op 3: {e}")
+
+    # -----------------------------------------------------------------
+    # OPERACION 4: Creacion correcta de servicio de Reserva de Sala
+    # -----------------------------------------------------------------
+    print("\n--- Operacion 4: Creacion de servicio Reserva de Sala ---")
+    try:
+        srv_sala = ReservaSala("SRV-01", "Sala de Juntas A", 50000, 20)
+        lista_servicios.append(srv_sala)
+        print("Servicio creado:", srv_sala.mostrar_resumen())
+    except Exception as e:
+        print(f"Error controlado en Op 4: {e}")
+
+    # -----------------------------------------------------------------
+    # OPERACION 5: Creacion incorrecta de servicio (costo negativo)
+    # -----------------------------------------------------------------
+    print("\n--- Operacion 5: Creacion de servicio con parametros invalidos ---")
+    try:
+        srv_invalido = AlquilerEquipo("SRV-02", "Servidor Dedicado", -80000, 2)  # INTEGRACION: el 4to dato son las unidades (entero); el error buscado es la tarifa negativa
+        lista_servicios.append(srv_invalido)
+    except Exception as e:
+        print(f"Error capturado correctamente en Op 5 -> {e}")
+
+    # -----------------------------------------------------------------
+    # OPERACION 6: Creacion correcta de Equipos y Asesoria Especializada
+    # -----------------------------------------------------------------
+    print("\n--- Operacion 6: Creacion de servicios de Equipos y Asesoria ---")
+    try:
+        srv_equipo = AlquilerEquipo("SRV-03", "Portatil Workstation", 35000, 5)  # INTEGRACION: el 4to dato son las unidades (entero)
+        srv_asesoria = Asesoria("SRV-04", "Auditoria de Seguridad", 120000, "Ciberseguridad", "senior")  # INTEGRACION: la clase se llama Asesoria y recibe nivel
+        lista_servicios.extend([srv_equipo, srv_asesoria])
+        print("Servicios agregados:", srv_equipo.mostrar_resumen(), "|", srv_asesoria.mostrar_resumen())
+    except Exception as e:
+        print(f"Error controlado en Op 6: {e}")
+
+    # -----------------------------------------------------------------
+    # OPERACION 7: Reserva exitosa (procesamiento normal y confirmacion)
+    # -----------------------------------------------------------------
+    print("\n--- Operacion 7: Creacion y confirmacion de reserva exitosa ---")
+    try:
+        if lista_clientes and lista_servicios:
+            res1 = Reserva("RES-01", lista_clientes[0], lista_servicios[0], 4)
+            res1.procesar_reserva()
+            res1.confirmar_reserva()
+            lista_reservas.append(res1)
+            print(res1.mostrar_resumen())
+        else:  # INTEGRACION: avisar en lugar de saltarse la operacion en silencio
+            print("Op 7 OMITIDA: faltan clientes o servicios (revisar operaciones anteriores).")
+    except Exception as e:
+        print(f"Error controlado en Op 7: {e}")
+
+    # -----------------------------------------------------------------
+    # OPERACION 8: Reserva fallida por duracion inconsistente (0 horas)
+    # -----------------------------------------------------------------
+    print("\n--- Operacion 8: Intento de reserva con duracion invalida ---")
+    try:
+        if lista_clientes and lista_servicios:
+            res_mala = Reserva("RES-02", lista_clientes[0], lista_servicios[0], 0)
+            lista_reservas.append(res_mala)
+        else:  # INTEGRACION
+            print("Op 8 OMITIDA: faltan clientes o servicios (revisar operaciones anteriores).")
+    except Exception as e:
+        print(f"Error capturado correctamente en Op 8 -> {e}")
+
+    # -----------------------------------------------------------------
+    # OPERACION 9: Reserva con sobrecarga (descuento) y luego cancelada
+    # -----------------------------------------------------------------
+    print("\n--- Operacion 9: Reserva con descuento y posterior cancelacion ---")
+    try:
+        if len(lista_clientes) > 1 and len(lista_servicios) > 1:
+            res2 = Reserva("RES-03", lista_clientes[1], lista_servicios[1], 6)
+            # se aplica 10% de descuento usando los parametros opcionales
+            res2.procesar_reserva(descuento=0.10, impuesto=0.19)
+            res2.confirmar_reserva()
+            res2.cancelar_reserva("Cambio de fecha en el proyecto")
+            lista_reservas.append(res2)
+        else:  # INTEGRACION
+            print("Op 9 OMITIDA: faltan clientes o servicios (revisar operaciones anteriores).")
+    except Exception as e:
+        print(f"Error controlado en Op 9: {e}")
+
+    # -----------------------------------------------------------------
+    # OPERACION 10: Operacion no permitida (confirmar reserva cancelada
+    # y prueba de encadenamiento con descuento fuera de rango)
+    # -----------------------------------------------------------------
+    print("\n--- Operacion 10: Intento de operacion no permitida y fallo encadenado ---")
+    try:
+        if lista_reservas:
+            # INTEGRACION: el titulo de la operacion decia "confirmar reserva cancelada" pero no se hacia
+            try:
+                lista_reservas[-1].confirmar_reserva()
+            except SoftwareFJError as e_confirmar:
+                print(f"Operacion no permitida capturada en Op 10 -> {e_confirmar}")
+            # intentamos meter un descuento invalido de 150% para activar el encadenamiento
+            lista_reservas[-1].procesar_reserva(descuento=1.50)
+        else:  # INTEGRACION
+            print("Op 10 OMITIDA: no hay reservas (revisar operaciones anteriores).")
+    except Exception as e:
+        print(f"Error encadenado capturado en Op 10 -> {e}")
+        if e.__cause__:
+            print(f"   Causa raiz registrada: {e.__cause__}")
+
+    print("\n=======================================================")
+    print(" RESUMEN FINAL DEL SISTEMA (APLICACION ESTABLE)")
+    print("=======================================================")
+    print(f"Clientes validos en memoria: {len(lista_clientes)}")
+    print(f"Servicios activos en memoria: {len(lista_servicios)}")
+    print(f"Reservas registradas en memoria: {len(lista_reservas)}")
+    print("Revisa el archivo 'eventos_software_fj.log' para ver todo el historial.")
+    GestorLogs.registrar_info("Simulacion de 10 operaciones finalizada sin interrupciones.")
+
+
+# este bloque va SIEMPRE al final del archivo, despues de todos los modulos
+if __name__ == "__main__":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")   # evita errores de tildes en consolas de Windows
+    except AttributeError:
+        pass
+    if len(sys.argv) > 1 and sys.argv[1] == "pruebas":
+        probar_modulo_1()
+        probar_modulo_2()
+        probar_modulo_3()
+    else:
+        ejecutar_simulacion()
+
